@@ -23,6 +23,25 @@ Related issue: https://github.com/vmware-tanzu/velero/issues/4066
 - Change existing restore workflow for `ServiceAccount` objects
 - Add support for `ExistingResourcePolicy` as `recreate` for Kubernetes resources. (Future scope feature)
 
+### Usecases/Scenarios
+
+### A. Production Cluster - Backup Cluster:
+Let's say you have a Backup Cluster which is identical to the Production Cluster. After some operations/usage/time the Production Cluster had changed itself, there might be new deployments, some secrets might have been updated. Now, this means that the Backup cluster will no longer be identical to the Production Cluster. In order to keep the Backup Cluster upto date/identical to the Production Cluster with respect to Kubernetes resources except PVs we would like to use Velero for scheduling new backups which would in turn help us update the Backup Cluster via Velero restore. 
+
+Reference: https://github.com/vmware-tanzu/velero/issues/4066#issuecomment-954320686
+
+### B. Help identify resource delta:
+Here delta resources mean the resources restored by a previous backup but they are no longer in the latest backup. Lets follow a sequence of steps to understand this scenario:
+- Consider there are 2 clusters, Cluster A, which has 3 resources - P1, P2 and P3.
+- Create a Backup1 from Cluster A which has P1, P2 and P3.
+- Perform restore on a new Cluster B using Backup1.
+- Now, Lets say in Cluster A resource P1 gets deleted and resource P2 gets updated.
+- Create a new Backup2 with the new state of Cluster A, keep in mind Backup1 has P1, P2 and P3 while Backup2 has P2' and P3.
+- So the Delta here is (|Backup1 - Backup2|), Delete P1 and Update P2.
+- During Restore time we would want the Restore to help us identify this resource delta.
+
+Reference: https://github.com/vmware-tanzu/velero/pull/4613#issuecomment-1027260446
+
 ## High-Level Design
 ### Approach 1: Add a new spec field `existingResourcePolicy` to the Restore API
 In this approach we do *not* change existing velero behavior. If the resource to restore in cluster is equal to the one backed up then do nothing following current Velero behavior. For resources that already exist in the cluster that are not equal to the resource in the backup (other than Service Accounts). We add a new optional spec field `existingResourcePolicy` which can have the following values:
