@@ -2,7 +2,7 @@
 ## Abstract
 As of today, Velero supports CSI snapshots. But there is a missing gap in functionality, the CSI snapshots are not durable as well as portable.
 It is desired that Velero support a concept of Datamover. We would like to propose an extensible design to support Datamovers, where-in the users
-can bring their own datamover implementation and use to replicate CSI snapshots to object storage during backup and also recreate PVCs from the snapshots
+can bring their own datamover implementation and use it to replicate CSI snapshots to object storage during backup and also recreate PVCs from the snapshots
 in object storage during restore. Thus making the CSI snapshots durable as well as portable.
 
 ## Background
@@ -13,7 +13,7 @@ tightly coupled with Velero, makes it difficult for someone to bring their own i
 crash consistent as it requires quiescing of data before the backup is taken thus affecting the availability of application.
 
 2. Volume Snapshots: Storage providers provide with volume snapshot capabilities via plugins. These snapshots are crash consistent but there is no guarantee that
-these snapshots are durable. These snapshots are generally stored locally in the cluster storage, so the cluster breaks then the snapshots are of no use. Velero also supports
+these snapshots are durable. These snapshots are generally stored locally in the cluster storage, so if the cluster breaks then the snapshots are of no use. Velero also supports
 CSI volume snapshots, but as there is no data movement provided by Velero for these CSI snapshots they are not durable and dependent on the storage provider.
 
 In order to overcome the shortcomings we would like to propose an extensible design to support various data movers. Users can bring their own data mover
@@ -24,15 +24,13 @@ Related Issue: https://github.com/vmware-tanzu/velero/issues/3229
 
 ## Goals
 - Provide an extensible data mover solution
-- Add a default data mover option
-- Add APIs for DataMover CRs (eg: DataMoverBackup, DataMoverRestore, DataMoverType)
-- Provide a sample codebase for the Data Mover plugin and controller implementation
+- Datamover example PoC
 
 ## Non Goals
 - Maintain 3rd party data mover implementations
 - Adding a status watch controller to Velero
 
-## High-Level Design (This design proposal pitches [VolSync](https://github.com/backube/volsync) as a default datamover)
+## High-Level Design ([VolSync](https://github.com/backube/volsync) as a working Proof of Concept)
 The following design proposal is for adding a datamover feature to Velero which can be integrated with various user implemented datamovers.
 
 ![](https://i.imgur.com/IvncXhE.png)
@@ -117,15 +115,15 @@ spec:
 4. DataMover Flag: This will a Velero install flag, if this is flag is set to true then Velero will be installed with the DataMover Plugin.
 
 5. DataMover Plugin: This is the plugin which will get installed when DataMover Flag is set to true. This plugin's duty would be to create DataMoverBackup(DMB) CR. This 
-plugin would lookup for the PVCs present in the user namespace and will create a DMB CR for every PVC.
+plugin would lookup for the PVCs present in the user namespace and will create a DMB CR for every PVC. This Plugin is also responsible for creating DataMoverRestore(DMR) CR for each DMB CR encountered during restore.
 
 6. DataMoverBackup Controller: The DataMoverBackup Controller will watch for DataMoverBackup CR.
 
 7. DataMoverRestore Controller: DataMoverRestore Controller will watch for DataMoverRestore CR.
 
-### Default Data Mover controller (VolSync)
+### Data Mover controller PoC - [VolSync](https://github.com/backube/volsync)
 
-VolSync will be used as the default Data Mover and `restic` will be the supported method for backup & restore of PVCs. Restic repository details are configured in a `secret` object
+VolSync will be used as the Data Mover and `restic` (VolSync restic option and not the one integrated with Velero) will be the supported method for backup & restore of PVCs. Restic repository details are configured in a `secret` object
 which gets used by the VolSync's resources. This design takes advantage of VolSync's two resources - `ReplicationSource` & `ReplicationDestination`. `ReplicationSource` object helps
 with taking a backup of the PVCs and using restic to move it to the storage specified in the restic secret. `ReplicationDestination` object takes care of restoring the backup from the
 restic repository. There will be a 1:1 relationship between the replication src/dest CRs and PVCs.
@@ -199,5 +197,5 @@ A status controller is created to watch VolSync CRs. It watches the `Replication
 
 Data mover controller will clean up all controller-created resources after the process is complete.
 
-
-
+## Alternative approaches
+The earlier [design](https://github.com/vmware-tanzu/velero/pull/4461) mentioned usage of Astrolabe for data movement.
