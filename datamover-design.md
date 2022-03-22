@@ -124,6 +124,8 @@ plugin would lookup for the PVCs present in the user namespace and will create a
 
 7. DataMoverRestore Controller: DataMoverRestore Controller will watch for DataMoverRestore CR.
 
+**Note**: Currently, we have taken the DataMoverRestore Controller approach but we want to explore upstream K8s APIs for these usecases like [volume populator](https://kubernetes.io/blog/2021/08/30/volume-populators-redesigned/).
+
 ### Data Mover controller PoC - [VolSync](https://github.com/backube/volsync)
 
 VolSync will be used as the Data Mover and `restic` (VolSync restic option and not the one integrated with Velero) will be the supported method for backup & restore of PVCs. Restic repository details are configured in a `secret` object
