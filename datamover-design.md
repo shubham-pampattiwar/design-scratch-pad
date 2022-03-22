@@ -16,21 +16,24 @@ crash consistent as it requires quiescing of data before the backup is taken thu
 these snapshots are durable. These snapshots are generally stored locally in the cluster storage, so if the cluster breaks then the snapshots are of no use. Velero also supports
 CSI volume snapshots, but as there is no data movement provided by Velero for these CSI snapshots they are not durable and dependent on the storage provider.
 
-In order to overcome the shortcomings we would like to propose an extensible design to support various data movers. Users can bring their own data mover
-controller and implementation, and use that with Velero to replicate CSI snapshots to object storage during backup and also recreate PVCs from the snapshots
-in object storage during restore.
 
 Related Issue: https://github.com/vmware-tanzu/velero/issues/3229
 
 ## Goals
-- Provide an extensible data mover solution
-- Datamover example PoC
+- To be able to backup CSI snapshots to object storage
+- To be able to recreate CSI snapshots under a different storage provider
+- To provide an extensible data mover solution which should allow third parties to plugin their own datamover implementation
+- To provide a Datamover example PoC
 
 ## Non Goals
 - Maintain 3rd party data mover implementations
 - Adding a status watch controller to Velero
+- To support incremental backups (future scope, dependent on standard CSI support for snapshot differentials)
+- To allow plug-ins for services like encryption, compression etc. (future scope)
 
 ## High-Level Design ([VolSync](https://github.com/backube/volsync) as a working Proof of Concept)
+The goal of this high level design is to explain a working PoC of moving CSI snapshots where-in a datamover (VolSync) works in conjunction with Velero via a DataMover plugin (will be installed when the DataMover flag is set to true).
+
 The following design proposal is for adding a datamover feature to Velero which can be integrated with various user implemented datamovers.
 
 ![](https://i.imgur.com/IvncXhE.png)
@@ -112,7 +115,7 @@ spec:
       name: <secret_name>
 ```
 
-4. DataMover Flag: This will a Velero install flag, if this is flag is set to true then Velero will be installed with the DataMover Plugin.
+4. DataMover Flag: This will be a Velero install flag, if this is flag is set to true then Velero will be installed with the DataMover Plugin.
 
 5. DataMover Plugin: This is the plugin which will get installed when DataMover Flag is set to true. This plugin's duty would be to create DataMoverBackup(DMB) CR. This 
 plugin would lookup for the PVCs present in the user namespace and will create a DMB CR for every PVC. This Plugin is also responsible for creating DataMoverRestore(DMR) CR for each DMB CR encountered during restore.
@@ -197,5 +200,7 @@ A status controller is created to watch VolSync CRs. It watches the `Replication
 
 Data mover controller will clean up all controller-created resources after the process is complete.
 
-## Alternative approaches
-The earlier [design](https://github.com/vmware-tanzu/velero/pull/4461) mentioned usage of Astrolabe for data movement.
+## Open Questions/ Discussion topics
+
+- We would like to open the forum for discussion on what can be learnt from this working PoC and what can be included for Velero datamover.
+- Another approach that we can explore is by extending the CSI plugin to move the CSI snapshots.
